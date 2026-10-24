@@ -44,8 +44,6 @@ export interface EntryDto {
   company: string;
   kind: "member" | "guest";
   enteredAt: string;
-  leftAt: string | null;
-  status: "in-building" | "left";
 }
 
 export interface MeetingDto {

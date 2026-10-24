@@ -46,9 +46,13 @@ export default function ReceptionPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           <IncidentsPanel incidents={data.incidents} />
-          <EnteredPanel entered={data.entered} timeZone={location.timeZone} />
-          <FreeSpotsPanel freeSpots={data.freeSpots} />
-          <MeetingsPanel meetings={data.meetings} timeZone={location.timeZone} />
+          <div className="grid content-start gap-4">
+            <FreeSpotsPanel freeSpots={data.freeSpots} />
+            <EnteredPanel entered={data.entered} timeZone={location.timeZone} />
+          </div>
+          <div className="lg:col-span-2">
+            <MeetingsPanel meetings={data.meetings} timeZone={location.timeZone} />
+          </div>
         </div>
       )}
     </div>

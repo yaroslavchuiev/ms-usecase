@@ -68,8 +68,6 @@ export function buildReception(location: LocationDto, raw: RawReception, now: Da
       company: c.Account__r.Name,
       kind: c.Type__c === "Member" ? ("member" as const) : ("guest" as const),
       enteredAt: iso(c.Check_In_Time__c),
-      leftAt: c.Check_Out_Time__c ? iso(c.Check_Out_Time__c) : null,
-      status: c.Check_Out_Time__c ? ("left" as const) : ("in-building" as const),
     }))
     .sort((a, b) => b.enteredAt.localeCompare(a.enteredAt));
 

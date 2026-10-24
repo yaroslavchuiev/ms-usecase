@@ -67,7 +67,6 @@ export interface SfCheckIn extends SfRecord {
   Account__c: string; // member's company, or the company a guest is visiting
   Account__r: SfRef<{ Name: string }>;
   Check_In_Time__c: string;
-  Check_Out_Time__c: string | null;
   Location__c: string;
 }
 

@@ -18,7 +18,7 @@ const CASE_FIELDS =
   "Id, CaseNumber, Subject, Category__c, Priority, Status, IsClosed, CreatedDate, ClosedDate, SLA_Breached__c, Location__c, RecordType.Name";
 const SPACE_FIELDS = "Id, Name, Type__c, Capacity__c, Status__c, Location__c";
 const CHECK_IN_FIELDS =
-  "Id, Type__c, Contact__c, Contact__r.Name, Guest_Name__c, Account__c, Account__r.Name, Check_In_Time__c, Check_Out_Time__c, Location__c";
+  "Id, Type__c, Contact__c, Contact__r.Name, Guest_Name__c, Account__c, Account__r.Name, Check_In_Time__c, Location__c";
 const BOOKING_FIELDS = "Id, Name, Space__c, Space__r.Name, Account__c, Account__r.Name, Start__c, End__c, Guest_Count__c, Location__c";
 
 export function fetchLocations() {

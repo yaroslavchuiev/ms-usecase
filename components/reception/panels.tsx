@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { EmptyState, Panel } from "@/components/panel";
 import { useNow } from "@/components/use-now";
 import type { EntryDto, FreeSpotsDto, IncidentDto, MeetingDto } from "@/lib/dto";
@@ -58,62 +58,85 @@ export function FreeSpotsPanel({ freeSpots }: { freeSpots: FreeSpotsDto[] }) {
 }
 
 export function EnteredPanel({ entered, timeZone }: { entered: EntryDto[]; timeZone: string }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   // Reception screens face visitors: let staff blur names with one click.
   const [blur, setBlur] = useState(false);
-  const inBuilding = entered.filter((e) => e.status === "in-building").length;
+  const members = entered.filter((e) => e.kind === "member").length;
 
   return (
-    <Panel
-      title="Entered today"
-      className="lg:row-span-2"
-      aside={
-        <span className="flex items-center gap-3">
-          {entered.length} entered · {inBuilding} in building
-          <button
-            type="button"
-            onClick={() => setBlur((b) => !b)}
-            aria-pressed={blur}
-            className="rounded border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
-          >
-            {blur ? "Show names" : "Blur names"}
-          </button>
+    <Panel title="Entered today">
+      {/* Only entries are known (no check-out data), so this is a counter, not "in the building". */}
+      <button
+        type="button"
+        disabled={entered.length === 0}
+        onClick={() => {
+          setOpen(true);
+          dialog.current?.showModal();
+        }}
+        className="w-full rounded border border-zinc-200 p-3 text-center transition enabled:hover:border-zinc-400 dark:border-zinc-800 dark:enabled:hover:border-zinc-600"
+      >
+        <span className="block text-3xl font-semibold tabular-nums">{entered.length}</span>
+        <span className="block text-xs text-zinc-500">
+          {entered.length === 0 ? "Nobody has checked in yet today" : `${members} members · ${entered.length - members} guests`}
         </span>
-      }
-    >
-      {entered.length === 0 ? (
-        <EmptyState>Nobody has checked in yet today</EmptyState>
-      ) : (
-        <div className="max-h-[32rem] overflow-auto 2xl:max-h-[44rem]">
-          <table className="w-full min-w-[28rem] text-sm">
-            <thead className="sticky top-0 bg-white text-left text-xs text-zinc-500 dark:bg-black">
-              <tr>
-                <th className="py-1 pr-3 font-normal">Name</th>
-                <th className="py-1 pr-3 font-normal">Company</th>
-                <th className="py-1 pr-3 font-normal">Type</th>
-                <th className="py-1 pr-3 font-normal">In</th>
-                <th className="py-1 pr-3 font-normal">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {entered.map((e) => (
-                <tr key={e.id}>
-                  <td className={`py-1.5 pr-3 font-medium ${blur ? "blur-sm select-none" : ""}`}>{e.name}</td>
-                  <td className="py-1.5 pr-3">{e.company}</td>
-                  <td className="py-1.5 pr-3 capitalize">{e.kind}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{formatTime(e.enteredAt, timeZone)}</td>
-                  <td className="whitespace-nowrap py-1.5">
-                    {e.status === "in-building" ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">In building</span>
-                    ) : (
-                      <span className="text-zinc-500">Left {e.leftAt && formatTime(e.leftAt, timeZone)}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+        {entered.length > 0 && <span className="mt-1 block text-xs text-indigo-500">Click to see who</span>}
+      </button>
+
+      <dialog
+        ref={dialog}
+        onClose={() => setOpen(false)}
+        onClick={(e) => e.target === dialog.current && dialog.current?.close()} // click on the backdrop
+        aria-label="People who entered today"
+        className="m-auto w-[min(48rem,92vw)] rounded-lg bg-white p-4 text-zinc-900 backdrop:bg-black/50 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        {open && (
+          <>
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="font-semibold">Entered today · {entered.length}</h2>
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBlur((b) => !b)}
+                  aria-pressed={blur}
+                  className="rounded border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
+                >
+                  {blur ? "Show names" : "Blur names"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dialog.current?.close()}
+                  className="rounded border border-zinc-300 px-2 py-0.5 text-xs dark:border-zinc-700"
+                >
+                  Close
+                </button>
+              </span>
+            </div>
+            <div className="max-h-[70vh] overflow-auto">
+              <table className="w-full min-w-[28rem] text-sm">
+                <thead className="sticky top-0 bg-white text-left text-xs text-zinc-500 dark:bg-zinc-900">
+                  <tr>
+                    <th className="py-1 pr-3 font-normal">Name</th>
+                    <th className="py-1 pr-3 font-normal">Company</th>
+                    <th className="py-1 pr-3 font-normal">Type</th>
+                    <th className="py-1 font-normal">Entered</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {entered.map((e) => (
+                    <tr key={e.id}>
+                      <td className={`py-1.5 pr-3 font-medium ${blur ? "blur-sm select-none" : ""}`}>{e.name}</td>
+                      <td className="py-1.5 pr-3">{e.company}</td>
+                      <td className="py-1.5 pr-3 capitalize">{e.kind}</td>
+                      <td className="py-1.5 tabular-nums">{formatTime(e.enteredAt, timeZone)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </dialog>
     </Panel>
   );
 }

@@ -221,11 +221,9 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
       for (const person of [...people, ...visitors]) {
         // Most people arrive around 9:00; the rest spread through the day.
         const arrival = clamp(rng.chance(0.7) ? rng.normal(9 * 60, 70) : rng.int(7 * 60, 17 * 60), 6 * 60, 20 * 60 + 30);
-        const stay = clamp(rng.normal(8 * 60, 90), 60, 12 * 60);
         const enteredAt = start.getTime() + Math.round(arrival) * MIN;
         // Today is generated for the whole day, then cut at `now`, so the data stays stable.
         if (enteredAt > now.getTime()) continue;
-        const leftAt = enteredAt + Math.round(stay) * MIN;
         const member = "id" in person;
         checkIns.push(
           record("Check_In__c", newId("a02"), {
@@ -236,7 +234,6 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
             Account__c: person.account.AccountId,
             Account__r: ref("Account", person.account.AccountId, { Name: person.account.Account.Name }),
             Check_In_Time__c: sfDateTime(new Date(enteredAt)),
-            Check_Out_Time__c: leftAt <= now.getTime() ? sfDateTime(new Date(leftAt)) : null,
             Location__c: locationId,
           }),
         );
