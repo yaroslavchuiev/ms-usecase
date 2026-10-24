@@ -10,11 +10,11 @@ interface PollingState<T> {
 }
 
 /**
- * Fetches `url` now and then every `intervalMs`. If a refresh fails, `error` is set but the
+ * Fetches `url` now and then every `intervalMs` (null = fetch once, e.g. for Stats). If a refresh fails, `error` is set but the
  * last good `data` is kept, so the screen never goes blank. Data from a previous URL (e.g. the
  * previous location) is never returned.
  */
-export function usePolling<T>(url: string | null, intervalMs: number) {
+export function usePolling<T>(url: string | null, intervalMs: number | null) {
   const router = useRouter();
   const [state, setState] = useState<PollingState<T>>({ url: null, data: null, error: null });
 
@@ -38,7 +38,7 @@ export function usePolling<T>(url: string | null, intervalMs: number) {
         const error = e instanceof Error ? e.message : "Request failed";
         setState((s) => (s.url === url ? { ...s, error } : { url, data: null, error }));
       }
-      timer = setTimeout(load, intervalMs);
+      if (intervalMs !== null) timer = setTimeout(load, intervalMs);
     };
     load();
 

@@ -1,10 +1,12 @@
 // Time-zone helpers. The server runs in UTC, but "today" and displayed times must follow each
 // location's own time zone (Warsaw, Tel Aviv, ...). Everything is built on Intl, no date library.
 
-/** Offset of `tz` from UTC at the given instant, in ms (e.g. Warsaw in summer = +2h). */
-export function zonedOffsetMs(date: Date, tz: string): number {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
+// Creating an Intl.DateTimeFormat is slow and stats code calls this thousands of times.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatterFor(tz: string): Intl.DateTimeFormat {
+  let f = formatters.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
       hourCycle: "h23",
       year: "numeric",
@@ -13,10 +15,15 @@ export function zonedOffsetMs(date: Date, tz: string): number {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
-    })
-      .formatToParts(date)
-      .map((x) => [x.type, x.value]),
-  );
+    });
+    formatters.set(tz, f);
+  }
+  return f;
+}
+
+/** Offset of `tz` from UTC at the given instant, in ms (e.g. Warsaw in summer = +2h). */
+export function zonedOffsetMs(date: Date, tz: string): number {
+  const p = Object.fromEntries(formatterFor(tz).formatToParts(date).map((x) => [x.type, x.value]));
   const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
   return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
@@ -43,4 +50,9 @@ export function addLocalDays(dayStart: Date, days: number, tz: string): Date {
 /** Day of week of the local day starting at `dayStart`: 0 = Sunday ... 6 = Saturday. */
 export function localDayOfWeek(dayStart: Date, tz: string): number {
   return new Date(localDateString(dayStart, tz) + "T00:00:00Z").getUTCDay();
+}
+
+/** Hour of the local day (0-23) at the given instant. */
+export function localHour(date: Date, tz: string): number {
+  return new Date(date.getTime() + zonedOffsetMs(date, tz)).getUTCHours();
 }

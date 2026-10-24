@@ -1,4 +1,4 @@
-import type { RawReception } from "@/lib/salesforce/mappers";
+import type { RawReception, RawStats } from "@/lib/salesforce/mappers";
 import { getMockDataset } from "./index";
 
 // Mock equivalents of the SOQL queries in lib/salesforce/queries.ts (step 7): the same
@@ -18,5 +18,26 @@ export function mockReceptionRecords(locationId: string, dayStart: Date, dayEnd:
     checkInsToday: inLocation(ds.checkIns.records).filter((c) => inDay(c.Check_In_Time__c)),
     // WHERE Location__c = :id AND Start__c >= :dayStart AND Start__c < :dayEnd
     bookingsToday: inLocation(ds.bookings.records).filter((b) => inDay(b.Start__c)),
+  };
+}
+
+export function mockStatsRecords(locationId: string, from: Date, to: Date, fromDate: string): RawStats {
+  const ds = getMockDataset();
+  const inLocation = <T extends { Location__c: string }>(rows: T[]) => rows.filter((r) => r.Location__c === locationId);
+  const between = (dateTime: string) => Date.parse(dateTime) >= from.getTime() && Date.parse(dateTime) < to.getTime();
+
+  return {
+    // WHERE Location__c = :id AND Date__c >= :fromDate
+    snapshots: inLocation(ds.snapshots.records).filter((s) => s.Date__c >= fromDate),
+    // WHERE Location__c = :id AND Check_In_Time__c >= :from AND Check_In_Time__c < :to
+    checkIns: inLocation(ds.checkIns.records).filter((c) => between(c.Check_In_Time__c)),
+    // WHERE Location__c = :id AND Type__c = 'Room'
+    rooms: inLocation(ds.spaces.records).filter((s) => s.Type__c === "Room"),
+    // WHERE Location__c = :id AND Start__c >= :from AND Start__c < :to
+    bookings: inLocation(ds.bookings.records).filter((b) => between(b.Start__c)),
+    // WHERE RecordType.Name = 'Building Incident' AND Location__c = :id AND CreatedDate >= :from
+    casesCreated: inLocation(ds.cases.records).filter((c) => between(c.CreatedDate)),
+    // WHERE Location__c = :id  (small: one contract per company)
+    contracts: inLocation(ds.contracts.records),
   };
 }

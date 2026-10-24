@@ -11,3 +11,8 @@ export function formatAge(minutes: number): string {
   if (hours < 24) return `${hours}h ${minutes % 60}m`;
   return `${Math.floor(hours / 24)}d ${hours % 24}h`;
 }
+
+/** "2026-10-24" -> "24 Oct" (the date is already local, so no time zone conversion). */
+export function formatDay(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+}
