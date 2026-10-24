@@ -83,8 +83,8 @@ export function EnteredPanel({ entered, timeZone }: { entered: EntryDto[]; timeZ
       {entered.length === 0 ? (
         <EmptyState>Nobody has checked in yet today</EmptyState>
       ) : (
-        <div className="max-h-[32rem] overflow-y-auto">
-          <table className="w-full text-sm">
+        <div className="max-h-[32rem] overflow-auto 2xl:max-h-[44rem]">
+          <table className="w-full min-w-[28rem] text-sm">
             <thead className="sticky top-0 bg-white text-left text-xs text-zinc-500 dark:bg-black">
               <tr>
                 <th className="py-1 pr-3 font-normal">Name</th>

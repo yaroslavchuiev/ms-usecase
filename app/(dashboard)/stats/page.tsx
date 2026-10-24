@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDashboard } from "@/components/dashboard-context";
+import { ErrorBanner } from "@/components/error-banner";
 import { EmptyState } from "@/components/panel";
 import { CheckInsPanel, IncidentsStatsPanel, MembersPanel, OccupancyPanel, RoomsPanel } from "@/components/stats/panels";
 import { usePolling } from "@/components/use-polling";
@@ -17,7 +18,7 @@ export default function StatsPage() {
   const { location } = useDashboard();
   const [range, setRange] = useState<StatsRange>("30d");
   // Stats are loaded on demand (no polling): they only change over days.
-  const { data, error } = usePolling<StatsDto>(`/api/stats?location=${location.slug}&range=${range}`, null);
+  const { data, error, retry } = usePolling<StatsDto>(`/api/stats?location=${location.slug}&range=${range}`, null);
 
   return (
     <div className="space-y-4">
@@ -40,11 +41,7 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {error && (
-        <p role="alert" className="rounded bg-amber-50 p-3 text-sm text-amber-800">
-          Couldn&apos;t load stats ({error}).
-        </p>
-      )}
+      {error && <ErrorBanner message={`Couldn't load stats (${error}).`} onRetry={retry} />}
 
       {!data ? (
         !error && <EmptyState>Loading…</EmptyState>

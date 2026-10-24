@@ -1,23 +1,31 @@
 "use client";
 
 import { useDashboard } from "@/components/dashboard-context";
+import { ErrorBanner } from "@/components/error-banner";
 import { EmptyState } from "@/components/panel";
 import { EnteredPanel, FreeSpotsPanel, IncidentsPanel, MeetingsPanel } from "@/components/reception/panels";
 import { useNow } from "@/components/use-now";
 import { usePolling } from "@/components/use-polling";
 import type { ReceptionDto } from "@/lib/dto";
+import { formatTime } from "@/lib/format";
 
 const POLL_MS = 30_000;
 
 function LastUpdated({ iso }: { iso: string }) {
   const now = useNow(5_000);
   const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
-  return <span className="text-sm text-zinc-500">Updated {seconds < 5 ? "just now" : `${seconds}s ago`}</span>;
+  // Polling is every 30 s: after 90 s without news, say so.
+  const stale = seconds > 90;
+  return (
+    <span className={`text-sm ${stale ? "font-medium text-amber-600" : "text-zinc-500"}`}>
+      Updated {seconds < 5 ? "just now" : seconds < 120 ? `${seconds}s ago` : `${Math.round(seconds / 60)} min ago`}
+    </span>
+  );
 }
 
 export default function ReceptionPage() {
   const { location } = useDashboard();
-  const { data, error } = usePolling<ReceptionDto>(`/api/reception?location=${location.slug}`, POLL_MS);
+  const { data, error, retry } = usePolling<ReceptionDto>(`/api/reception?location=${location.slug}`, POLL_MS);
 
   return (
     <div className="space-y-4">
@@ -27,9 +35,10 @@ export default function ReceptionPage() {
       </div>
 
       {error && (
-        <p role="alert" className="rounded bg-amber-50 p-3 text-sm text-amber-800">
-          Couldn&apos;t refresh ({error}). {data ? "Showing the last data we received." : "Retrying…"}
-        </p>
+        <ErrorBanner
+          message={`Couldn't refresh (${error}). ${data ? `Showing data from ${formatTime(data.lastUpdated, location.timeZone)}.` : "Retrying…"}`}
+          onRetry={retry}
+        />
       )}
 
       {!data ? (

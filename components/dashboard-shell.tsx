@@ -25,7 +25,7 @@ export function DashboardShell({ me, children }: { me: MeDto; children: ReactNod
   return (
     <DashboardProvider me={me}>
       <Header />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-7xl 2xl:max-w-[110rem] flex-1 px-4 py-6">
         <Content>{children}</Content>
       </main>
     </DashboardProvider>

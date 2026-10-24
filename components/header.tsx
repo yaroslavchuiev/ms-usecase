@@ -44,7 +44,7 @@ export function Header() {
 
   return (
     <header className="border-b border-zinc-200 dark:border-zinc-800">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+      <div className="mx-auto flex max-w-7xl 2xl:max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <span className="font-semibold tracking-tight">Mindspace</span>
 
         {me.locations.length > 1 ? (
