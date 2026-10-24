@@ -37,7 +37,7 @@ export function mockStatsRecords(locationId: string, from: Date, to: Date, fromD
     bookings: inLocation(ds.bookings.records).filter((b) => between(b.Start__c)),
     // WHERE RecordType.Name = 'Building Incident' AND Location__c = :id AND CreatedDate >= :from
     casesCreated: inLocation(ds.cases.records).filter((c) => between(c.CreatedDate)),
-    // WHERE Location__c = :id  (small: one contract per company)
-    contracts: inLocation(ds.contracts.records),
+    // WHERE Location__c = :id AND EndDate >= :fromDate
+    contracts: inLocation(ds.contracts.records).filter((c) => c.EndDate >= fromDate),
   };
 }

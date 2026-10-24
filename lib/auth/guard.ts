@@ -21,7 +21,14 @@ export async function authoriseLocationRequest(
   if (!slug) return { error: jsonError(400, "Missing 'location' parameter") };
   if (!authorise(user, slug, role)) return { error: jsonError(403, "You don't have access to this location") };
 
-  const location = (await getLocations()).find((l) => l.slug === slug);
+  let locations: LocationDto[];
+  try {
+    locations = await getLocations();
+  } catch (error) {
+    console.error("location lookup failed:", error);
+    return { error: jsonError(502, "Salesforce data is temporarily unavailable") };
+  }
+  const location = locations.find((l) => l.slug === slug);
   if (!location) return { error: jsonError(404, "Location not found") };
   return { location };
 }
