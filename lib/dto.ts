@@ -30,6 +30,7 @@ export interface IncidentDto {
   status: string;
   createdAt: string;
   ageMinutes: number;
+  url: string | null; // opens the case in Salesforce (null if no org URL is configured)
 }
 
 export interface FreeSpotsDto {
@@ -46,12 +47,41 @@ export interface EntryDto {
   enteredAt: string;
 }
 
-export interface MeetingDto {
+/** A shortcut shown on Reception. `url` may be https:// or tel:. */
+export interface UsefulLinkDto {
+  label: string;
+  description: string;
+  url: string;
+}
+
+export interface CompanyDto {
   id: string;
-  room: string;
+  name: string;
+}
+
+/** A parcel waiting at reception. */
+export interface DeliveryDto {
+  id: string;
+  company: string;
+  carrier: string | null;
+  receivedAt: string;
+}
+
+/** Body of POST /api/deliveries?location=... */
+export interface NewDeliveryBody {
+  companyId: string;
+  carrier?: string;
+}
+
+/** One line of today's agenda. Tours are sales visits by prospects; room/event are bookings by members. */
+export interface AgendaItemDto {
+  id: string;
+  kind: "tour" | "room" | "event";
+  title: string; // room or event space name; "Sales tour" for tours
+  company: string; // booking company, or the prospect's company for tours
+  host: string | null; // Mindspace sales host (tours only)
   start: string;
   end: string;
-  company: string;
   guests: number;
 }
 
@@ -61,7 +91,10 @@ export interface ReceptionDto {
   incidents: IncidentDto[]; // open only, highest priority first
   freeSpots: FreeSpotsDto[];
   entered: EntryDto[]; // today in the location's time zone, latest first
-  meetings: MeetingDto[]; // today, chronological
+  agenda: AgendaItemDto[]; // tours and bookings today, chronological
+  deliveries: DeliveryDto[]; // waiting to be collected, oldest first
+  links: UsefulLinkDto[];
+  companies: CompanyDto[]; // member companies with an active contract here: recipients for a new delivery
 }
 
 // --- /api/stats ------------------------------------------------------------

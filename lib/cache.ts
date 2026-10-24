@@ -13,3 +13,8 @@ export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): P
   value.catch(() => store.delete(key)); // never cache a failure; concurrent callers share one request
   return value;
 }
+
+/** Drops cached entries whose key starts with `prefix`, e.g. after a write so the next read is fresh. */
+export function invalidate(prefix: string): void {
+  for (const key of store.keys()) if (key.startsWith(prefix)) store.delete(key);
+}

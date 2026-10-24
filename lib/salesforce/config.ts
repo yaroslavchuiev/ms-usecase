@@ -10,6 +10,20 @@ export interface SalesforceConfig {
   clientSecret: string;
 }
 
+/**
+ * Base URL for links that open Salesforce in the user's browser, or null when it isn't configured
+ * (mock mode without SALESFORCE_INSTANCE_URL). Unlike the credentials, this URL is not secret:
+ * staff open Salesforce with it anyway.
+ */
+export function getSalesforceBaseUrl(): string | null {
+  try {
+    const url = new URL(process.env.SALESFORCE_INSTANCE_URL ?? "");
+    return url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getSalesforceConfig(): SalesforceConfig {
   const env = process.env;
   const missing = ["SALESFORCE_INSTANCE_URL", "SF_CLIENT_ID", "SF_CLIENT_SECRET"].filter((name) => !env[name]);

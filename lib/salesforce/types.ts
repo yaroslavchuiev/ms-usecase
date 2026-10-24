@@ -48,7 +48,7 @@ export interface SfCase extends SfRecord {
   RecordType: SfRef<{ Name: string }>;
 }
 
-export type SfSpaceType = "Desk" | "Office" | "Room";
+export type SfSpaceType = "Desk" | "Office" | "Room" | "Event Space";
 
 export interface SfSpace extends SfRecord {
   Name: string;
@@ -74,12 +74,37 @@ export interface SfCheckIn extends SfRecord {
 export interface SfBooking extends SfRecord {
   Name: string; // auto-number, e.g. "BK-0001234"
   Space__c: string;
-  Space__r: SfRef<{ Name: string }>;
+  Space__r: SfRef<{ Name: string; Type__c: SfSpaceType }>;
   Account__c: string;
   Account__r: SfRef<{ Name: string }>;
   Start__c: string;
   End__c: string;
   Guest_Count__c: number;
+  Location__c: string;
+}
+
+/** A parcel received at reception for a member company, waiting to be collected. */
+export interface SfDelivery extends SfRecord {
+  Name: string; // auto-number, e.g. "DL-0000123"
+  Account__c: string;
+  Account__r: SfRef<{ Name: string }>;
+  Carrier__c: string | null;
+  Received_Time__c: string;
+  Collected_Time__c: string | null;
+  Status__c: "Waiting" | "Collected";
+  Location__c: string;
+}
+
+/** Sales tour: Mindspace showing a building to a prospective client. Not a room booking. */
+export interface SfTour extends SfRecord {
+  Name: string; // auto-number, e.g. "TR-0000123"
+  Start__c: string;
+  End__c: string;
+  Prospect_Company__c: string;
+  Guest_Count__c: number;
+  Host__c: string; // the sales person (User)
+  Host__r: SfRef<{ Name: string }>;
+  Status__c: "Scheduled" | "Completed" | "Cancelled";
   Location__c: string;
 }
 

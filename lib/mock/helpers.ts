@@ -81,12 +81,13 @@ function checksum(id15: string): string {
 /**
  * Returns a generator of unique IDs per key prefix: 3-char prefix + instance "5g" + "00000" +
  * 5 scrambled chars + 3-char checksum (18 total), e.g. "5005g00000Xk3mQAAS".
- * Prefixes: Case 500, Account 001, Contact 003, Contract 800; custom objects a00-a04.
+ * Prefixes: Case 500, Account 001, Contact 003, Contract 800; custom objects a00-a06.
+ * `startAt` lets a second factory continue after the first one without repeating IDs.
  */
-export function createIdFactory(): (prefix: string) => string {
+export function createIdFactory(startAt = 0): (prefix: string) => string {
   const counters = new Map<string, number>();
   return (prefix) => {
-    const n = (counters.get(prefix) ?? 0) + 1;
+    const n = (counters.get(prefix) ?? startAt) + 1;
     counters.set(prefix, n);
     // Multiplying by a number coprime with 62^5 is a bijection: scrambled but never colliding.
     let scrambled = (n * 2654435761) % BASE62_5;

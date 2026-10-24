@@ -58,14 +58,19 @@ async function describeError(res: Response): Promise<string> {
   }
 }
 
-async function get<T>(url: string): Promise<T> {
+async function send<T>(method: "GET" | "POST" | "PATCH", url: string, body?: object): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const token = await getToken(attempt > 0);
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+    const res = await fetch(url, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, ...(body && { "Content-Type": "application/json" }) },
+      body: body && JSON.stringify(body),
+      cache: "no-store",
+    });
     // 401 = token expired or revoked before our clock noticed: get a new one and retry once.
     if (res.status === 401 && attempt === 0) continue;
-    if (!res.ok) throw new SalesforceError(`Salesforce query failed (HTTP ${res.status}) ${await describeError(res)}`, res.status);
-    return (await res.json()) as T;
+    if (!res.ok) throw new SalesforceError(`Salesforce ${method} failed (HTTP ${res.status}) ${await describeError(res)}`, res.status);
+    return (res.status === 204 ? undefined : await res.json()) as T; // PATCH answers 204 No Content
   }
 }
 
@@ -75,9 +80,24 @@ export async function query<T>(soql: string): Promise<T[]> {
   const records: T[] = [];
   let url: string | null = `${instanceUrl}/services/data/${apiVersion}/query?q=${encodeURIComponent(soql)}`;
   while (url) {
-    const page: SfQueryResult<T> = await get(url);
+    const page: SfQueryResult<T> = await send("GET", url);
     records.push(...page.records);
     url = !page.done && page.nextRecordsUrl ? instanceUrl + page.nextRecordsUrl : null;
   }
   return records;
+}
+
+// --- Writes (the only ones in the app: reception logs and collects deliveries) ---------------------
+// The integration user needs create/edit permission on that one object, nothing else.
+
+/** Creates a record and returns its new Id. `sobject` is a constant from our code, never user input. */
+export async function createRecord(sobject: string, fields: object): Promise<string> {
+  const { instanceUrl, apiVersion } = getSalesforceConfig();
+  const result = await send<{ id: string; success: boolean }>("POST", `${instanceUrl}/services/data/${apiVersion}/sobjects/${sobject}`, fields);
+  return result.id;
+}
+
+export async function updateRecord(sobject: string, id: string, fields: object): Promise<void> {
+  const { instanceUrl, apiVersion } = getSalesforceConfig();
+  await send<void>("PATCH", `${instanceUrl}/services/data/${apiVersion}/sobjects/${sobject}/${id}`, fields);
 }

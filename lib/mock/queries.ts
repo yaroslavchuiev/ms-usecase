@@ -1,10 +1,17 @@
 import type { RawReception, RawStats } from "@/lib/salesforce/mappers";
+import type { SfContract } from "@/lib/salesforce/types";
+import { mockWaitingDeliveries } from "./deliveries";
 import { getMockDataset } from "./index";
 
 // Mock equivalents of the SOQL queries in lib/salesforce/queries.ts (step 7): the same
 // WHERE conditions, applied to the fixtures with plain array filters.
 
-export function mockReceptionRecords(locationId: string, dayStart: Date, dayEnd: Date): RawReception {
+/** Contracts valid today: the member companies that can receive deliveries here. */
+export function mockActiveContracts(locationId: string, today: string): SfContract[] {
+  return getMockDataset().contracts.records.filter((c) => c.Location__c === locationId && c.StartDate <= today && c.EndDate >= today);
+}
+
+export function mockReceptionRecords(locationId: string, dayStart: Date, dayEnd: Date, today: string): RawReception {
   const ds = getMockDataset();
   const inLocation = <T extends { Location__c: string }>(rows: T[]) => rows.filter((r) => r.Location__c === locationId);
   const inDay = (dateTime: string) => Date.parse(dateTime) >= dayStart.getTime() && Date.parse(dateTime) < dayEnd.getTime();
@@ -18,6 +25,11 @@ export function mockReceptionRecords(locationId: string, dayStart: Date, dayEnd:
     checkInsToday: inLocation(ds.checkIns.records).filter((c) => inDay(c.Check_In_Time__c)),
     // WHERE Location__c = :id AND Start__c >= :dayStart AND Start__c < :dayEnd
     bookingsToday: inLocation(ds.bookings.records).filter((b) => inDay(b.Start__c)),
+    // WHERE Location__c = :id AND Status__c != 'Cancelled' AND Start__c >= :dayStart AND Start__c < :dayEnd
+    toursToday: inLocation(ds.tours.records).filter((t) => t.Status__c !== "Cancelled" && inDay(t.Start__c)),
+    // WHERE Location__c = :id AND Status__c = 'Waiting' ORDER BY Received_Time__c
+    waitingDeliveries: mockWaitingDeliveries(locationId),
+    activeContracts: mockActiveContracts(locationId, today),
   };
 }
 

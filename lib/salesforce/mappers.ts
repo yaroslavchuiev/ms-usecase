@@ -3,14 +3,17 @@ import type {
   FreeSpotsDto,
   IncidentDto,
   LocationDto,
-  MeetingDto,
+  AgendaItemDto,
+  CompanyDto,
+  UsefulLinkDto,
+  DeliveryDto,
   ReceptionDto,
   RoomUtilisationDto,
   StatsDto,
   StatsRange,
 } from "@/lib/dto";
 import { addLocalDays, localDateString, localHour, startOfLocalDay } from "@/lib/time";
-import type { SfBooking, SfCase, SfCheckIn, SfContract, SfLocation, SfOccupancySnapshot, SfSpace } from "./types";
+import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTour } from "./types";
 
 /** "Kraków" -> "krakow", "Tel Aviv" -> "tel-aviv". Slugs are what group names refer to. */
 export function slugify(name: string): string {
@@ -37,12 +40,34 @@ export interface RawReception {
   spaces: SfSpace[];
   checkInsToday: SfCheckIn[];
   bookingsToday: SfBooking[];
+  toursToday: SfTour[];
+  waitingDeliveries: SfDelivery[];
+  activeContracts: SfContract[];
+}
+
+export const mapDelivery = (d: SfDelivery): DeliveryDto => ({
+  id: d.Id,
+  company: d.Account__r.Name,
+  carrier: d.Carrier__c,
+  receivedAt: new Date(d.Received_Time__c).toISOString(),
+});
+
+/** One entry per company (a company could hold several contracts), sorted by name. */
+export function mapCompanies(contracts: SfContract[]): CompanyDto[] {
+  const byId = new Map(contracts.map((c) => [c.AccountId, c.Account.Name]));
+  return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const iso = (sfDateTime: string) => new Date(sfDateTime).toISOString(); // "…+0000" -> "…Z"
 const PRIORITY_ORDER = { High: 0, Medium: 1, Low: 2 } as const;
 
-export function buildReception(location: LocationDto, raw: RawReception, now: Date): ReceptionDto {
+/** Things that come from configuration rather than from Salesforce records. */
+export interface ReceptionExtras {
+  salesforceBaseUrl: string | null; // for "open in Salesforce" links on cases
+  links: UsefulLinkDto[];
+}
+
+export function buildReception(location: LocationDto, raw: RawReception, now: Date, extras: ReceptionExtras): ReceptionDto {
   const incidents: IncidentDto[] = raw.openCases
     .map((c) => ({
       id: c.Id,
@@ -53,6 +78,7 @@ export function buildReception(location: LocationDto, raw: RawReception, now: Da
       status: c.Status,
       createdAt: iso(c.CreatedDate),
       ageMinutes: Math.max(0, Math.floor((now.getTime() - Date.parse(c.CreatedDate)) / 60_000)),
+      url: extras.salesforceBaseUrl && `${extras.salesforceBaseUrl}/lightning/r/Case/${c.Id}/view`,
     }))
     .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || b.ageMinutes - a.ageMinutes);
 
@@ -71,18 +97,39 @@ export function buildReception(location: LocationDto, raw: RawReception, now: Da
     }))
     .sort((a, b) => b.enteredAt.localeCompare(a.enteredAt));
 
-  const meetings: MeetingDto[] = raw.bookingsToday
-    .map((b) => ({
-      id: b.Id,
-      room: b.Space__r.Name,
-      start: iso(b.Start__c),
-      end: iso(b.End__c),
-      company: b.Account__r.Name,
-      guests: b.Guest_Count__c,
-    }))
-    .sort((a, b) => a.start.localeCompare(b.start) || a.room.localeCompare(b.room));
+  const bookings: AgendaItemDto[] = raw.bookingsToday.map((b) => ({
+    id: b.Id,
+    kind: b.Space__r.Type__c === "Event Space" ? ("event" as const) : ("room" as const),
+    title: b.Space__r.Name,
+    company: b.Account__r.Name,
+    host: null,
+    start: iso(b.Start__c),
+    end: iso(b.End__c),
+    guests: b.Guest_Count__c,
+  }));
+  const tours: AgendaItemDto[] = raw.toursToday.map((t) => ({
+    id: t.Id,
+    kind: "tour" as const,
+    title: "Sales tour",
+    company: t.Prospect_Company__c,
+    host: t.Host__r.Name,
+    start: iso(t.Start__c),
+    end: iso(t.End__c),
+    guests: t.Guest_Count__c,
+  }));
+  const agenda = [...bookings, ...tours].sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 
-  return { location, lastUpdated: now.toISOString(), incidents, freeSpots, entered, meetings };
+  return {
+    location,
+    lastUpdated: now.toISOString(),
+    incidents,
+    freeSpots,
+    entered,
+    agenda,
+    deliveries: raw.waitingDeliveries.map(mapDelivery).sort((a, b) => a.receivedAt.localeCompare(b.receivedAt)),
+    links: extras.links,
+    companies: mapCompanies(raw.activeContracts),
+  };
 }
 
 // --- Stats -------------------------------------------------------------------------------------

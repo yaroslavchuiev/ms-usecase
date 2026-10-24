@@ -3,7 +3,9 @@
 import { useDashboard } from "@/components/dashboard-context";
 import { ErrorBanner } from "@/components/error-banner";
 import { EmptyState } from "@/components/panel";
-import { EnteredPanel, FreeSpotsPanel, IncidentsPanel, MeetingsPanel } from "@/components/reception/panels";
+import { DeliveriesPanel } from "@/components/reception/deliveries";
+import { UsefulLinksPanel } from "@/components/reception/useful-links";
+import { AgendaPanel, IncidentsPanel, OverviewPanel } from "@/components/reception/panels";
 import { useNow } from "@/components/use-now";
 import { usePolling } from "@/components/use-polling";
 import type { ReceptionDto } from "@/lib/dto";
@@ -44,15 +46,14 @@ export default function ReceptionPage() {
       {!data ? (
         !error && <EmptyState>Loading…</EmptyState>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <IncidentsPanel incidents={data.incidents} />
-          <div className="grid content-start gap-4">
-            <FreeSpotsPanel freeSpots={data.freeSpots} />
-            <EnteredPanel entered={data.entered} timeZone={location.timeZone} />
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="grid gap-4">
+            <OverviewPanel freeSpots={data.freeSpots} entered={data.entered} timeZone={location.timeZone} />
+            <DeliveriesPanel locationSlug={location.slug} deliveries={data.deliveries} companies={data.companies} onChanged={retry} />
+            <UsefulLinksPanel links={data.links} />
+            <IncidentsPanel incidents={data.incidents} />
           </div>
-          <div className="lg:col-span-2">
-            <MeetingsPanel meetings={data.meetings} timeZone={location.timeZone} />
-          </div>
+          <AgendaPanel agenda={data.agenda} timeZone={location.timeZone} />
         </div>
       )}
     </div>

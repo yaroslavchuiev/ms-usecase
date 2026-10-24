@@ -1,7 +1,7 @@
 import "server-only";
 import { query } from "./client";
 import type { RawReception, RawStats } from "./mappers";
-import type { SfBooking, SfCase, SfCheckIn, SfContract, SfLocation, SfOccupancySnapshot, SfSpace } from "./types";
+import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTour } from "./types";
 
 // The SOQL behind each dashboard. lib/mock/queries.ts mirrors these WHERE clauses, so mock
 // and live return the same records. Field lists are exactly what the mappers read.
@@ -19,15 +19,32 @@ const CASE_FIELDS =
 const SPACE_FIELDS = "Id, Name, Type__c, Capacity__c, Status__c, Location__c";
 const CHECK_IN_FIELDS =
   "Id, Type__c, Contact__c, Contact__r.Name, Guest_Name__c, Account__c, Account__r.Name, Check_In_Time__c, Location__c";
-const BOOKING_FIELDS = "Id, Name, Space__c, Space__r.Name, Account__c, Account__r.Name, Start__c, End__c, Guest_Count__c, Location__c";
+const BOOKING_FIELDS = "Id, Name, Space__c, Space__r.Name, Space__r.Type__c, Account__c, Account__r.Name, Start__c, End__c, Guest_Count__c, Location__c";
 
 export function fetchLocations() {
   return query<SfLocation>("SELECT Id, Name, Capacity__c, Time_Zone__c FROM Location__c ORDER BY Name");
 }
 
-export async function fetchReceptionRecords(locationId: string, dayStart: Date, dayEnd: Date): Promise<RawReception> {
+const DELIVERY_FIELDS = "Id, Name, Account__c, Account__r.Name, Carrier__c, Received_Time__c, Collected_Time__c, Status__c, Location__c";
+
+/** Contracts valid today (`today` is the location's local date, YYYY-MM-DD): the companies that can receive deliveries. */
+export function fetchActiveContracts(locationId: string, today: string) {
+  return query<SfContract>(
+    `SELECT Id, ContractNumber, AccountId, Account.Name, Status, StartDate, EndDate, Location__c FROM Contract WHERE Location__c = ${id(locationId)} AND StartDate <= ${today} AND EndDate >= ${today}`,
+  );
+}
+
+/** Used to check a delivery belongs to the caller's location before collecting it. */
+export async function fetchWaitingDelivery(locationId: string, deliveryId: string) {
+  const rows = await query<SfDelivery>(
+    `SELECT ${DELIVERY_FIELDS} FROM Delivery__c WHERE Id = ${id(deliveryId)} AND Location__c = ${id(locationId)} AND Status__c = 'Waiting'`,
+  );
+  return rows[0];
+}
+
+export async function fetchReceptionRecords(locationId: string, dayStart: Date, dayEnd: Date, today: string): Promise<RawReception> {
   const loc = id(locationId);
-  const [openCases, spaces, checkInsToday, bookingsToday] = await Promise.all([
+  const [openCases, spaces, checkInsToday, bookingsToday, toursToday, waitingDeliveries, activeContracts] = await Promise.all([
     query<SfCase>(`SELECT ${CASE_FIELDS} FROM Case WHERE ${BUILDING_INCIDENT} AND IsClosed = false AND Location__c = ${loc}`),
     query<SfSpace>(`SELECT ${SPACE_FIELDS} FROM Space__c WHERE Location__c = ${loc}`),
     query<SfCheckIn>(
@@ -36,8 +53,15 @@ export async function fetchReceptionRecords(locationId: string, dayStart: Date, 
     query<SfBooking>(
       `SELECT ${BOOKING_FIELDS} FROM Booking__c WHERE Location__c = ${loc} AND Start__c >= ${dateTime(dayStart)} AND Start__c < ${dateTime(dayEnd)}`,
     ),
+    query<SfTour>(
+      `SELECT Id, Name, Start__c, End__c, Prospect_Company__c, Guest_Count__c, Host__c, Host__r.Name, Status__c, Location__c FROM Tour__c WHERE Location__c = ${loc} AND Status__c != 'Cancelled' AND Start__c >= ${dateTime(dayStart)} AND Start__c < ${dateTime(dayEnd)}`,
+    ),
+    query<SfDelivery>(
+      `SELECT ${DELIVERY_FIELDS} FROM Delivery__c WHERE Location__c = ${loc} AND Status__c = 'Waiting' ORDER BY Received_Time__c`,
+    ),
+    fetchActiveContracts(locationId, today),
   ]);
-  return { openCases, spaces, checkInsToday, bookingsToday };
+  return { openCases, spaces, checkInsToday, bookingsToday, toursToday, waitingDeliveries, activeContracts };
 }
 
 export async function fetchStatsRecords(locationId: string, from: Date, to: Date, fromDate: string): Promise<RawStats> {

@@ -4,20 +4,25 @@ import type {
   SfCase,
   SfCheckIn,
   SfContract,
+  SfDelivery,
   SfLocation,
   SfOccupancySnapshot,
   SfQueryResult,
   SfSpace,
+  SfTour,
 } from "@/lib/salesforce/types";
 import { addLocalDays, localDateString, localDayOfWeek, startOfLocalDay } from "@/lib/time";
 import { createIdFactory, createRng, queryResult, record, ref, sfDateTime } from "./helpers";
 import {
+  CARRIERS,
   COMPANY_NAMES,
   FIRST_NAMES,
   INCIDENTS,
   INCIDENT_CATEGORY_WEIGHTS,
   LAST_NAMES,
+  PROSPECT_COMPANIES,
   ROOM_NAMES,
+  SALES_HOSTS,
 } from "./names";
 
 // Fixtures in Salesforce REST format: what `SELECT ... FROM Object` would return for ALL
@@ -31,6 +36,8 @@ export interface MockDataset {
   spaces: SfQueryResult<SfSpace>;
   checkIns: SfQueryResult<SfCheckIn>;
   bookings: SfQueryResult<SfBooking>;
+  tours: SfQueryResult<SfTour>;
+  deliveries: SfQueryResult<SfDelivery>;
   snapshots: SfQueryResult<SfOccupancySnapshot>;
   accounts: SfQueryResult<SfAccount>;
   contracts: SfQueryResult<SfContract>;
@@ -41,9 +48,9 @@ const MIN = 60_000;
 
 // Kraków shares Warsaw's zone; Tel Aviv is the one with a different zone and UTC offset.
 const LOCATIONS = [
-  { name: "Warsaw", tz: "Europe/Warsaw", desks: 60, offices: 28, rooms: 8, occupancy: 0.82, companies: [0, 24] },
-  { name: "Kraków", tz: "Europe/Warsaw", desks: 40, offices: 18, rooms: 5, occupancy: 0.71, companies: [20, 36] },
-  { name: "Tel Aviv", tz: "Asia/Jerusalem", desks: 50, offices: 24, rooms: 6, occupancy: 0.77, companies: [30, 50] },
+  { name: "Warsaw", tz: "Europe/Warsaw", desks: 60, offices: 28, rooms: 8, eventSpace: "Town Hall", occupancy: 0.82, companies: [0, 24] },
+  { name: "Kraków", tz: "Europe/Warsaw", desks: 40, offices: 18, rooms: 5, eventSpace: "Atrium", occupancy: 0.71, companies: [20, 36] },
+  { name: "Tel Aviv", tz: "Asia/Jerusalem", desks: 50, offices: 24, rooms: 6, eventSpace: "Rooftop Studio", occupancy: 0.77, companies: [30, 50] },
 ] as const;
 
 // Service levels per priority, in hours. Used for Case.SLA_Breached__c.
@@ -60,12 +67,17 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
   const spaces: SfSpace[] = [];
   const checkIns: SfCheckIn[] = [];
   const bookings: SfBooking[] = [];
+  const tours: SfTour[] = [];
+  const deliveries: SfDelivery[] = [];
   const snapshots: SfOccupancySnapshot[] = [];
   const contracts: SfContract[] = [];
 
   // One Account per company; a company can rent in more than one building.
   const accounts = COMPANY_NAMES.map((Name) => record("Account", newId("001"), { Name }));
+  const salesHosts = SALES_HOSTS.map((name) => ({ id: newId("005"), name }));
   let bookingNumber = 1000;
+  let tourNumber = 100;
+  let deliveryNumber = 100;
   let caseNumber = 1000;
   let contractNumber = 100;
 
@@ -86,7 +98,7 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
     // --- Spaces ---------------------------------------------------------------------------
     const mySpaces: SfSpace[] = [];
     const addSpace = (Name: string, Type__c: SfSpace["Type__c"], Capacity__c: number) => {
-      const Status__c = Type__c === "Room" ? "Available" : pickDeskStatus(rng.next());
+      const Status__c = Type__c === "Desk" || Type__c === "Office" ? pickDeskStatus(rng.next()) : "Available";
       mySpaces.push(record("Space__c", newId("a01"), { Name, Type__c, Capacity__c, Status__c, Location__c: locationId }));
     };
     // Share of desks/offices taken right now: occupied mostly, a few reserved or out of service.
@@ -100,7 +112,10 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
       addSpace(ROOM_NAMES[i], "Room", i === 0 ? 16 : rng.pick([4, 6, 8, 12]));
       roomSpaces.push(mySpaces[mySpaces.length - 1]);
     }
-    const rentable = mySpaces.filter((s) => s.Type__c !== "Room");
+    // Event spaces (town hall, atrium...) are booked like rooms but are not part of the room stats.
+    addSpace(cfg.eventSpace, "Event Space", 60);
+    const eventSpace = mySpaces[mySpaces.length - 1];
+    const rentable = mySpaces.filter((s) => s.Type__c === "Desk" || s.Type__c === "Office");
     location.Capacity__c = rentable.reduce((sum, s) => sum + s.Capacity__c, 0);
 
     // --- Companies, contracts and their people ------------------------------------------
@@ -140,37 +155,83 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
     // --- Meeting room bookings: every room, every day, plus the rest of today -------------
     // A room has a popularity, so the stats can show most and least used rooms.
     const popularity = new Map(roomSpaces.map((r) => [r.Id, rng.int(35, 120) / 100]));
+    popularity.set(eventSpace.Id, 0.3); // events are rarer than meetings
     for (let d = -HISTORY_DAYS; d <= 0; d++) {
       const start = dayStart(d);
       const date = localDateString(start, tz);
       const weekend = [0, 6].includes(localDayOfWeek(start, tz));
       const companies = activeOn(date);
       if (companies.length === 0) continue;
-      for (const room of roomSpaces) {
+      for (const room of [...roomSpaces, eventSpace]) {
+        const isEvent = room === eventSpace;
         let cursor = 8 * 60; // rooms are bookable 08:00-20:00 local
         while (cursor < 19 * 60) {
           if (!rng.chance(0.33 * popularity.get(room.Id)! * (weekend ? 0.25 : 1))) {
             cursor += 30;
             continue;
           }
-          const end = Math.min(cursor + rng.pick([30, 60, 60, 90, 120]), 20 * 60);
+          const end = Math.min(cursor + rng.pick(isEvent ? [120, 180, 240] : [30, 60, 60, 90, 120]), 20 * 60);
           const company = rng.pick(companies);
           bookings.push(
             record("Booking__c", newId("a03"), {
               Name: `BK-${String(++bookingNumber).padStart(7, "0")}`,
               Space__c: room.Id,
-              Space__r: ref("Space__c", room.Id, { Name: room.Name }),
+              Space__r: ref("Space__c", room.Id, { Name: room.Name, Type__c: room.Type__c }),
               Account__c: company.AccountId,
               Account__r: ref("Account", company.AccountId, { Name: company.Account.Name }),
               Start__c: sfDateTime(new Date(start.getTime() + cursor * MIN)),
               End__c: sfDateTime(new Date(start.getTime() + end * MIN)),
-              Guest_Count__c: rng.int(1, Math.min(room.Capacity__c, 10)),
+              Guest_Count__c: isEvent ? rng.int(15, 55) : rng.int(1, Math.min(room.Capacity__c, 10)),
               Location__c: locationId,
             }),
           );
           cursor = end + rng.pick([0, 15, 30]);
         }
       }
+    }
+    // --- Sales tours: prospects shown around the building by a Mindspace sales host ----------
+    for (let d = -HISTORY_DAYS; d <= 0; d++) {
+      const start = dayStart(d);
+      const weekend = [0, 6].includes(localDayOfWeek(start, tz));
+      for (let i = weekend ? rng.int(1, 2) : rng.int(2, 4); i > 0; i--) {
+        const from = Math.round(rng.int(9 * 60, 17 * 60) / 15) * 15;
+        const startsAt = new Date(start.getTime() + from * MIN);
+        const endsAt = new Date(startsAt.getTime() + rng.pick([30, 45, 60]) * MIN);
+        const host = rng.pick(salesHosts);
+        tours.push(
+          record("Tour__c", newId("a05"), {
+            Name: `TR-${String(++tourNumber).padStart(7, "0")}`,
+            Start__c: sfDateTime(startsAt),
+            End__c: sfDateTime(endsAt),
+            Prospect_Company__c: rng.pick(PROSPECT_COMPANIES),
+            Guest_Count__c: rng.int(1, 4),
+            Host__c: host.id,
+            Host__r: ref("User", host.id, { Name: host.name }),
+            Status__c: rng.chance(0.08) ? ("Cancelled" as const) : endsAt < now ? ("Completed" as const) : ("Scheduled" as const),
+            Location__c: locationId,
+          }),
+        );
+      }
+    }
+    // --- Deliveries: a few parcels waiting at reception, plus collected ones as history -------
+    const recipients = activeOn(localDateString(today, tz));
+    const waitingCount = rng.int(2, 4);
+    for (let i = 0; i < 14 && recipients.length > 0; i++) {
+      const waiting = i < waitingCount;
+      const company = rng.pick(recipients);
+      const received = new Date(now.getTime() - (waiting ? rng.int(30, 3 * 24 * 60) : rng.int(24 * 60, 20 * 24 * 60)) * MIN);
+      deliveries.push(
+        record("Delivery__c", newId("a06"), {
+          Name: `DL-${String(++deliveryNumber).padStart(7, "0")}`,
+          Account__c: company.AccountId,
+          Account__r: ref("Account", company.AccountId, { Name: company.Account.Name }),
+          Carrier__c: rng.pick(CARRIERS) as string | null,
+          Received_Time__c: sfDateTime(received),
+          Collected_Time__c: waiting ? null : sfDateTime(new Date(received.getTime() + rng.int(60, 23 * 60) * MIN)),
+          Status__c: waiting ? ("Waiting" as const) : ("Collected" as const),
+          Location__c: locationId,
+        }),
+      );
     }
     // A room is "Occupied" right now if a booking covers this instant.
     for (const room of roomSpaces) {
@@ -241,13 +302,13 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
     }
 
     // --- Incidents (Cases) --------------------------------------------------------------------
-    const makeCase = (createdAt: Date, closedAt: Date | null, status: SfCase["Status"], priority: Priority) => {
-      const category = rng.weighted(INCIDENT_CATEGORY_WEIGHTS);
+    const makeCase = (createdAt: Date, closedAt: Date | null, status: SfCase["Status"], priority: Priority, category = rng.weighted(INCIDENT_CATEGORY_WEIGHTS), subject = rng.pick(INCIDENTS[category])) => {
       const end = closedAt ?? now;
       cases.push(
         record("Case", newId("500"), {
           CaseNumber: String(++caseNumber).padStart(8, "0"),
-          Subject: rng.pick(INCIDENTS[category]),
+          // Some subjects are about a person, e.g. "Create access card for Anna Kowalska".
+          Subject: subject.replace("{name}", `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`),
           Category__c: category,
           Priority: priority,
           Status: status,
@@ -279,6 +340,8 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
       const status = priority === "High" && rng.chance(0.4) ? "Escalated" : rng.weighted<SfCase["Status"]>([["New", 45], ["Working", 55]]);
       makeCase(new Date(now.getTime() - ageMinutes * MIN), null, status, priority);
     }
+    // Always one open "new access card" request, so the demo shows a person-related case.
+    makeCase(new Date(now.getTime() - rng.int(20, 180) * MIN), null, "New", "Medium", "Access Control", "Create access card for {name}");
   }
 
   return {
@@ -287,6 +350,8 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
     spaces: queryResult(spaces),
     checkIns: queryResult(checkIns),
     bookings: queryResult(bookings),
+    tours: queryResult(tours),
+    deliveries: queryResult(deliveries),
     snapshots: queryResult(snapshots),
     accounts: queryResult(accounts),
     contracts: queryResult(contracts),

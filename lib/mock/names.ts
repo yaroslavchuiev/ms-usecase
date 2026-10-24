@@ -32,7 +32,7 @@ export const INCIDENTS: Record<string, string[]> = {
   Maintenance: ["Broken chair in the open space", "Door closer loose at the main entrance", "Flickering ceiling light"],
   "IT & Network": ["Wi-Fi dropping in the east wing", "Meeting room screen not turning on", "Printer offline"],
   "HVAC & Climate": ["Too warm in the open space", "Air conditioning leaking in a meeting room", "Heating not working in an office"],
-  "Access Control": ["Member badge not opening the door", "Turnstile stuck at the entrance", "Lift card reader not responding"],
+  "Access Control": ["Create access card for {name}", "Member badge not opening the door", "Turnstile stuck at the entrance", "Lift card reader not responding"],
   "Safety & Security": ["Emergency exit blocked by boxes", "Unattended bag in the lobby", "Fire extinguisher check overdue"],
   Noise: ["Loud call in the quiet zone", "Construction noise next door"],
 };
@@ -48,3 +48,14 @@ export const INCIDENT_CATEGORY_WEIGHTS: (readonly [string, number])[] = [
 ];
 
 export const ROOM_NAMES = ["Boardroom", "Aurora", "Cedar", "Delta", "Echo", "Granite", "Harbor", "Ivory"];
+
+// Sales tours: prospects are NOT existing accounts, and hosts are Mindspace sales people.
+export const PROSPECT_COMPANIES = [
+  "Brightwave Studios", "Kestrel Biotech", "Lindqvist & Partners", "Moonrise Gaming", "Novatek Systems",
+  "Orchard Capital", "Pelican Logistics", "Quartz Robotics", "Riverbend Health", "Stonebridge Law",
+  "Tern Aerospace", "Umbra Security", "Valley Analytics", "Wren Design Co", "Yarrow Energy",
+];
+
+export const SALES_HOSTS = ["Marta Zielińska", "Daniel Rosen", "Kasia Lis", "Ori Ben-David"];
+
+export const CARRIERS = ["DHL", "UPS", "FedEx", "InPost", "DPD", "Poczta Polska"];
