@@ -1,6 +1,6 @@
 import "server-only";
 import { query } from "./client";
-import type { RawReception, RawStats } from "./mappers";
+import { UPCOMING_DAYS, type RawReception, type RawStats, type StatsPeriod } from "./mappers";
 import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTask, SfTour } from "./types";
 
 // The SOQL behind each dashboard. lib/mock/queries.ts mirrors these WHERE clauses, so mock
@@ -33,6 +33,7 @@ export function fetchLocations() {
   return query<SfLocation>("SELECT Id, Name, Capacity__c, Time_Zone__c FROM Location__c ORDER BY Name");
 }
 
+const TOUR_FIELDS = "Id, Name, Start__c, End__c, Prospect_Company__c, Guest_Count__c, Host__c, Host__r.Name, Status__c, Signed_Date__c, Location__c";
 const DELIVERY_FIELDS = "Id, Name, Account__c, Account__r.Name, Carrier__c, Received_Time__c, Collected_Time__c, Status__c, Location__c";
 
 /** Contracts valid today (`today` is the location's local date, YYYY-MM-DD): the companies that can receive deliveries. */
@@ -62,7 +63,7 @@ export async function fetchReceptionRecords(locationId: string, dayStart: Date, 
       `SELECT ${BOOKING_FIELDS} FROM Booking__c WHERE Location__c = ${loc} AND Start__c >= ${dateTime(dayStart)} AND Start__c < ${dateTime(dayEnd)}`,
     ),
     query<SfTour>(
-      `SELECT Id, Name, Start__c, End__c, Prospect_Company__c, Guest_Count__c, Host__c, Host__r.Name, Status__c, Location__c FROM Tour__c WHERE Location__c = ${loc} AND Status__c != 'Cancelled' AND Start__c >= ${dateTime(dayStart)} AND Start__c < ${dateTime(dayEnd)}`,
+      `SELECT ${TOUR_FIELDS} FROM Tour__c WHERE Location__c = ${loc} AND Status__c IN ('Scheduled', 'Completed') AND Start__c >= ${dateTime(dayStart)} AND Start__c < ${dateTime(dayEnd)}`,
     ),
     query<SfDelivery>(
       `SELECT ${DELIVERY_FIELDS} FROM Delivery__c WHERE Location__c = ${loc} AND Status__c = 'Waiting' ORDER BY Received_Time__c`,
@@ -72,10 +73,10 @@ export async function fetchReceptionRecords(locationId: string, dayStart: Date, 
   return { openCases, spaces, checkInsToday, bookingsToday, toursToday, waitingDeliveries, activeContracts };
 }
 
-export async function fetchStatsRecords(locationId: string, from: Date, to: Date, fromDate: string): Promise<RawStats> {
+export async function fetchStatsRecords(locationId: string, { from, to, fromDate, now }: StatsPeriod): Promise<RawStats> {
   const loc = id(locationId);
   const period = (field: string) => `${field} >= ${dateTime(from)} AND ${field} < ${dateTime(to)}`;
-  const [snapshots, checkIns, rooms, bookings, casesCreated, contracts] = await Promise.all([
+  const [snapshots, checkIns, rooms, bookings, casesCreated, contracts, toursHeld, toursUpcoming] = await Promise.all([
     query<SfOccupancySnapshot>(
       `SELECT Id, Date__c, Occupied__c, Total__c, Location__c FROM Occupancy_Snapshot__c WHERE Location__c = ${loc} AND Date__c >= ${fromDate} ORDER BY Date__c`,
     ),
@@ -88,6 +89,12 @@ export async function fetchStatsRecords(locationId: string, from: Date, to: Date
     query<SfContract>(
       `SELECT Id, ContractNumber, AccountId, Account.Name, Status, StartDate, EndDate, Location__c FROM Contract WHERE Location__c = ${loc} AND EndDate >= ${fromDate}`,
     ),
+    query<SfTour>(
+      `SELECT ${TOUR_FIELDS} FROM Tour__c WHERE Location__c = ${loc} AND Status__c IN ('Completed', 'No Show', 'Cancelled') AND ${period("Start__c")}`,
+    ),
+    query<SfTour>(
+      `SELECT ${TOUR_FIELDS} FROM Tour__c WHERE Location__c = ${loc} AND Status__c = 'Scheduled' AND Start__c >= ${dateTime(now)} AND Start__c < ${dateTime(new Date(now.getTime() + UPCOMING_DAYS * 86_400_000))}`,
+    ),
   ]);
-  return { snapshots, checkIns, rooms, bookings, casesCreated, contracts };
+  return { snapshots, checkIns, rooms, bookings, casesCreated, contracts, toursHeld, toursUpcoming };
 }

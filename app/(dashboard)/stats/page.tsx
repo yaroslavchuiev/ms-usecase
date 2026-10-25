@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useDashboard } from "@/components/dashboard-context";
 import { ErrorBanner } from "@/components/error-banner";
 import { EmptyState } from "@/components/panel";
-import { CheckInsPanel, IncidentsStatsPanel, MembersPanel, OccupancyPanel, RoomsPanel } from "@/components/stats/panels";
+import { CheckInsPanel, IncidentsStatsPanel, MembersPanel, OccupancyPanel, RoomsPanel, SalesPanel } from "@/components/stats/panels";
 import { usePolling } from "@/components/use-polling";
 import type { StatsDto, StatsRange } from "@/lib/dto";
 
@@ -13,6 +13,16 @@ const RANGES: { value: StatsRange; label: string }[] = [
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
 ];
+
+/** Panels grouped by purpose, each group under a heading. */
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
+      <div className="grid items-start gap-4 lg:grid-cols-2">{children}</div>
+    </section>
+  );
+}
 
 export default function StatsPage() {
   const { location } = useDashboard();
@@ -46,12 +56,19 @@ export default function StatsPage() {
       {!data ? (
         !error && <EmptyState>Loading…</EmptyState>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <OccupancyPanel occupancy={data.occupancy} />
-          <CheckInsPanel checkIns={data.checkIns} />
-          <RoomsPanel rooms={data.rooms} />
-          <IncidentsStatsPanel incidents={data.incidents} />
-          <MembersPanel members={data.members} />
+        <div className="space-y-8">
+          <Group title="Sales & members">
+            <SalesPanel sales={data.sales} />
+            <MembersPanel members={data.members} />
+          </Group>
+          <Group title="Space">
+            <OccupancyPanel occupancy={data.occupancy} />
+            <RoomsPanel rooms={data.rooms} />
+          </Group>
+          <Group title="Building activity & operations">
+            <CheckInsPanel checkIns={data.checkIns} />
+            <IncidentsStatsPanel incidents={data.incidents} />
+          </Group>
         </div>
       )}
     </div>

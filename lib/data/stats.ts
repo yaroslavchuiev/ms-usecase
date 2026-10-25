@@ -15,12 +15,12 @@ export async function getStats(location: LocationDto, range: StatsRange, now = n
   // The period is whole local days: the last N days including today.
   const from = addLocalDays(todayStart, 1 - RANGE_DAYS[range], tz);
   const to = addLocalDays(todayStart, 1, tz);
-  const fromDate = localDateString(from, tz);
+  const period = { from, to, fromDate: localDateString(from, tz), now };
 
-  if (!isLiveMode()) return buildStats(location, range, mockStatsRecords(location.id, from, to, fromDate), now);
+  if (!isLiveMode()) return buildStats(location, range, mockStatsRecords(location.id, period), now);
 
   return cached(`stats:${location.id}:${range}`, LIVE_CACHE_MS, async () => {
-    const raw = await fetchStatsRecords(location.id, from, to, fromDate);
-    return buildStats(location, range, raw, new Date());
+    const raw = await fetchStatsRecords(location.id, period);
+    return buildStats(location, range, raw, now);
   });
 }

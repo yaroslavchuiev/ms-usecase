@@ -1,4 +1,4 @@
-import type { RawReception, RawStats } from "@/lib/salesforce/mappers";
+import { UPCOMING_DAYS, type RawReception, type RawStats, type StatsPeriod } from "@/lib/salesforce/mappers";
 import type { SfContract } from "@/lib/salesforce/types";
 import { mockWaitingDeliveries } from "./deliveries";
 import { getMockDataset } from "./index";
@@ -25,15 +25,15 @@ export function mockReceptionRecords(locationId: string, dayStart: Date, dayEnd:
     checkInsToday: inLocation(ds.checkIns.records).filter((c) => inDay(c.Check_In_Time__c)),
     // WHERE Location__c = :id AND Start__c >= :dayStart AND Start__c < :dayEnd
     bookingsToday: inLocation(ds.bookings.records).filter((b) => inDay(b.Start__c)),
-    // WHERE Location__c = :id AND Status__c != 'Cancelled' AND Start__c >= :dayStart AND Start__c < :dayEnd
-    toursToday: inLocation(ds.tours.records).filter((t) => t.Status__c !== "Cancelled" && inDay(t.Start__c)),
+    // WHERE Location__c = :id AND Status__c IN ('Scheduled', 'Completed') AND Start__c >= :dayStart AND Start__c < :dayEnd
+    toursToday: inLocation(ds.tours.records).filter((t) => ["Scheduled", "Completed"].includes(t.Status__c) && inDay(t.Start__c)),
     // WHERE Location__c = :id AND Status__c = 'Waiting' ORDER BY Received_Time__c
     waitingDeliveries: mockWaitingDeliveries(locationId),
     activeContracts: mockActiveContracts(locationId, today),
   };
 }
 
-export function mockStatsRecords(locationId: string, from: Date, to: Date, fromDate: string): RawStats {
+export function mockStatsRecords(locationId: string, { from, to, fromDate, now }: StatsPeriod): RawStats {
   const ds = getMockDataset();
   const inLocation = <T extends { Location__c: string }>(rows: T[]) => rows.filter((r) => r.Location__c === locationId);
   const between = (dateTime: string) => Date.parse(dateTime) >= from.getTime() && Date.parse(dateTime) < to.getTime();
@@ -51,5 +51,11 @@ export function mockStatsRecords(locationId: string, from: Date, to: Date, fromD
     casesCreated: inLocation(ds.cases.records).filter((c) => between(c.CreatedDate)),
     // WHERE Location__c = :id AND EndDate >= :fromDate
     contracts: inLocation(ds.contracts.records).filter((c) => c.EndDate >= fromDate),
+    // WHERE Location__c = :id AND Status__c IN ('Completed', 'No Show', 'Cancelled') AND Start__c >= :from AND Start__c < :to
+    toursHeld: inLocation(ds.tours.records).filter((t) => ["Completed", "No Show", "Cancelled"].includes(t.Status__c) && between(t.Start__c)),
+    // WHERE Location__c = :id AND Status__c = 'Scheduled' AND Start__c >= :now AND Start__c < :now + 7 days
+    toursUpcoming: inLocation(ds.tours.records).filter(
+      (t) => t.Status__c === "Scheduled" && Date.parse(t.Start__c) >= now.getTime() && Date.parse(t.Start__c) < now.getTime() + UPCOMING_DAYS * 86_400_000,
+    ),
   };
 }

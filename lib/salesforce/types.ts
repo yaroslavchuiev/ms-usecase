@@ -115,7 +115,9 @@ export interface SfTour extends SfRecord {
   Guest_Count__c: number;
   Host__c: string; // the sales person (User)
   Host__r: SfRef<{ Name: string }>;
-  Status__c: "Scheduled" | "Completed" | "Cancelled";
+  Status__c: "Scheduled" | "Completed" | "No Show" | "Cancelled";
+  /** Date the prospect signed a contract after this tour (set by a Flow when the deal closes), else null. */
+  Signed_Date__c: string | null;
   Location__c: string;
 }
 

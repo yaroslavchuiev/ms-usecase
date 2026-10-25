@@ -161,6 +161,19 @@ export interface StatsDto {
     averageResolutionHours: number;
     slaBreaches: number;
   };
+  /** Tour-to-contract funnel for tours that took place in the period. */
+  sales: {
+    booked: number; // held + no-show + cancelled
+    cancelled: number;
+    noShows: number;
+    completed: number; // the prospect came and was shown around
+    signed: number; // of those, prospects who then signed a contract
+    showRatePercent: number; // completed / (completed + no-shows)
+    conversionPercent: number; // signed / completed
+    averageDaysToSign: number | null;
+    upcoming: number; // tours scheduled in the next 7 days
+    byHost: { host: string; completed: number; signed: number; conversionPercent: number }[];
+  };
   members: {
     activeCompanies: number;
     moveIns: number;

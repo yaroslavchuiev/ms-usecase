@@ -190,7 +190,8 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
       }
     }
     // --- Sales tours: prospects shown around the building by a Mindspace sales host ----------
-    for (let d = -HISTORY_DAYS; d <= 0; d++) {
+    for (let d = -HISTORY_DAYS; d <= 7; d++) {
+      // (d > 0: tours already booked for the coming week)
       const start = dayStart(d);
       const weekend = [0, 6].includes(localDayOfWeek(start, tz));
       for (let i = weekend ? rng.int(1, 2) : rng.int(2, 4); i > 0; i--) {
@@ -198,6 +199,10 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
         const startsAt = new Date(start.getTime() + from * MIN);
         const endsAt = new Date(startsAt.getTime() + rng.pick([30, 45, 60]) * MIN);
         const host = rng.pick(salesHosts);
+        // Past tours: ~8% cancelled, ~12% of the rest no-show, and ~27% of held tours end in a signed contract.
+        const status: SfTour["Status__c"] = rng.chance(0.08) ? "Cancelled" : endsAt >= now ? "Scheduled" : rng.chance(0.12) ? "No Show" : "Completed";
+        const signedAt = new Date(startsAt.getTime() + rng.int(0, 21) * 86_400_000);
+        const signedDate = status === "Completed" && rng.chance(0.27) && signedAt <= now ? localDateString(signedAt, tz) : null;
         tours.push(
           record("Tour__c", newId("a05"), {
             Name: `TR-${String(++tourNumber).padStart(7, "0")}`,
@@ -207,7 +212,8 @@ export function buildMockDataset(now: Date = new Date()): MockDataset {
             Guest_Count__c: rng.int(1, 4),
             Host__c: host.id,
             Host__r: ref("User", host.id, { Name: host.name }),
-            Status__c: rng.chance(0.08) ? ("Cancelled" as const) : endsAt < now ? ("Completed" as const) : ("Scheduled" as const),
+            Status__c: status,
+            Signed_Date__c: signedDate,
             Location__c: locationId,
           }),
         );

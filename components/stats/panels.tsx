@@ -160,3 +160,66 @@ export function MembersPanel({ members }: { members: StatsDto["members"] }) {
     </Panel>
   );
 }
+
+function FunnelRow({ label, count, of, note }: { label: string; count: number; of: number; note?: string }) {
+  const width = of === 0 ? 0 : Math.max(2, Math.round((count / of) * 100));
+  return (
+    <li className="flex items-center gap-3 text-sm">
+      <span className="w-20 shrink-0">{label}</span>
+      <span className="h-5 flex-1 rounded bg-zinc-200 dark:bg-zinc-800">
+        <span className="block h-5 rounded bg-indigo-500" style={{ width: `${width}%` }} />
+      </span>
+      <span className="w-24 shrink-0 text-right tabular-nums">
+        {count} <span className="text-xs text-zinc-500">{note}</span>
+      </span>
+    </li>
+  );
+}
+
+export function SalesPanel({ sales }: { sales: StatsDto["sales"] }) {
+  return (
+    <Panel title="Sales tours" aside={`${sales.upcoming} booked for the next 7 days`}>
+      {sales.booked === 0 ? (
+        <EmptyState>No tours in this period</EmptyState>
+      ) : (
+        <>
+          <div className="mb-4 flex flex-wrap gap-x-8 gap-y-3">
+            <Kpi label="tours held" value={sales.completed} hint={`${sales.cancelled} cancelled`} />
+            <Kpi label="show rate" value={`${sales.showRatePercent}%`} hint={`${sales.noShows} no-shows`} />
+            <Kpi label="signed after tour" value={`${sales.conversionPercent}%`} hint={`${sales.signed} contracts`} />
+            <Kpi label="days tour → signed" value={sales.averageDaysToSign ?? "–"} />
+          </div>
+          <ul className="mb-4 space-y-2" aria-label="Tour funnel">
+            <FunnelRow label="Booked" count={sales.booked} of={sales.booked} />
+            <FunnelRow label="Held" count={sales.completed} of={sales.booked} note={`${percentOf(sales.completed, sales.booked)}%`} />
+            <FunnelRow label="Signed" count={sales.signed} of={sales.booked} note={`${percentOf(sales.signed, sales.completed)}% of held`} />
+          </ul>
+          <p className="mb-4 text-xs text-zinc-500">Deals take days to close, so recent tours can still convert: short periods read low.</p>
+          <h3 className="mb-2 text-xs font-medium text-zinc-500">By sales host</h3>
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-zinc-500">
+              <tr>
+                <th className="py-1 font-normal">Host</th>
+                <th className="py-1 text-right font-normal">Tours held</th>
+                <th className="py-1 text-right font-normal">Signed</th>
+                <th className="py-1 text-right font-normal">Rate</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {sales.byHost.map((h) => (
+                <tr key={h.host}>
+                  <td className="py-1.5">{h.host}</td>
+                  <td className="py-1.5 text-right tabular-nums">{h.completed}</td>
+                  <td className="py-1.5 text-right tabular-nums">{h.signed}</td>
+                  <td className="py-1.5 text-right tabular-nums">{h.conversionPercent}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+const percentOf = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));

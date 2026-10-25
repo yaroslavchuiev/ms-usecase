@@ -162,6 +162,16 @@ export const RANGE_DAYS: Record<StatsRange, number> = { "7d": 7, "30d": 30, "90d
 const BOOKABLE_HOURS_PER_DAY = 12;
 
 /** What the Stats view needs from Salesforce, all limited to the selected period. */
+/** The window a Stats request covers. `from`..`to` are whole local days; `now` splits past from upcoming. */
+export interface StatsPeriod {
+  from: Date;
+  to: Date;
+  fromDate: string; // local date of `from`, YYYY-MM-DD
+  now: Date;
+}
+
+export const UPCOMING_DAYS = 7;
+
 export interface RawStats {
   snapshots: SfOccupancySnapshot[];
   checkIns: SfCheckIn[];
@@ -169,10 +179,45 @@ export interface RawStats {
   bookings: SfBooking[];
   casesCreated: SfCase[];
   contracts: SfContract[];
+  /** Tours in the period that took place or were cancelled (not the ones still scheduled). */
+  toursHeld: SfTour[];
+  /** Tours still scheduled for the next UPCOMING_DAYS days. */
+  toursUpcoming: SfTour[];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const percent = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
+
+function buildSales(tours: SfTour[], upcoming: number): StatsDto["sales"] {
+  const count = (status: SfTour["Status__c"]) => tours.filter((t) => t.Status__c === status).length;
+  const completed = tours.filter((t) => t.Status__c === "Completed");
+  const signed = completed.filter((t) => t.Signed_Date__c);
+  const noShows = count("No Show");
+
+  const days = signed.map((t) => (Date.parse(t.Signed_Date__c!) - Date.parse(t.Start__c.slice(0, 10))) / 86_400_000);
+  const hosts = new Map<string, { completed: number; signed: number }>();
+  for (const t of completed) {
+    const h = hosts.get(t.Host__r.Name) ?? { completed: 0, signed: 0 };
+    h.completed++;
+    if (t.Signed_Date__c) h.signed++;
+    hosts.set(t.Host__r.Name, h);
+  }
+
+  return {
+    booked: tours.length,
+    cancelled: count("Cancelled"),
+    noShows,
+    completed: completed.length,
+    signed: signed.length,
+    showRatePercent: percent(completed.length, completed.length + noShows),
+    conversionPercent: percent(signed.length, completed.length),
+    averageDaysToSign: days.length ? round1(Math.max(0, days.reduce((a, b) => a + b, 0) / days.length)) : null,
+    upcoming,
+    byHost: [...hosts]
+      .map(([host, h]) => ({ host, ...h, conversionPercent: percent(h.signed, h.completed) }))
+      .sort((a, b) => b.signed - a.signed || b.completed - a.completed),
+  };
+}
 
 export function buildStats(location: LocationDto, range: StatsRange, raw: RawStats, now: Date): StatsDto {
   const tz = location.timeZone;
@@ -248,6 +293,7 @@ export function buildStats(location: LocationDto, range: StatsRange, raw: RawSta
       averageResolutionHours: resolved.length ? round1(resolutionHours / resolved.length) : 0,
       slaBreaches: raw.casesCreated.filter((c) => c.SLA_Breached__c).length,
     },
+    sales: buildSales(raw.toursHeld, raw.toursUpcoming.length),
     members: {
       activeCompanies: new Set(active.map((c) => c.AccountId)).size,
       moveIns: raw.contracts.filter((c) => c.StartDate >= periodStart && c.StartDate <= today).length,
