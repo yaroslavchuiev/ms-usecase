@@ -1,9 +1,21 @@
+import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { ShellSkeleton } from "@/components/shell-skeleton";
 import { getSessionUser } from "@/lib/auth/session";
 import { buildMe } from "@/lib/me";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+// The user and their locations come from the server (and, in live mode, from Salesforce), which can
+// take a moment on a cold start. The Suspense boundary lets the page frame stream in at once.
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<ShellSkeleton />}>
+      <DashboardGate>{children}</DashboardGate>
+    </Suspense>
+  );
+}
+
+async function DashboardGate({ children }: { children: ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Panel, EmptyState } from "@/components/panel";
+import { LoadingRegion, SkeletonRows } from "@/components/skeleton";
 import { usePolling } from "@/components/use-polling";
 import type { TaskDto, TasksDto } from "@/lib/dto";
 import { formatDay } from "@/lib/format";
@@ -20,7 +21,11 @@ export function TasksPanel({ locationSlug }: { locationSlug: string }) {
         </p>
       )}
       {!data ? (
-        !error && <EmptyState>Loading…</EmptyState>
+        !error && (
+          <LoadingRegion>
+            <SkeletonRows count={3} />
+          </LoadingRegion>
+        )
       ) : data.tasks.length === 0 ? (
         <EmptyState>Nothing due today — you&apos;re all caught up</EmptyState>
       ) : (

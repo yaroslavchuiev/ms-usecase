@@ -2,7 +2,8 @@
 
 import { useDashboard } from "@/components/dashboard-context";
 import { ErrorBanner } from "@/components/error-banner";
-import { EmptyState, Panel } from "@/components/panel";
+import { Panel } from "@/components/panel";
+import { ReceptionSkeleton } from "@/components/reception/skeleton";
 import { DeliveriesSection } from "@/components/reception/deliveries";
 import { TasksPanel } from "@/components/reception/tasks";
 import { LinksSection } from "@/components/reception/useful-links";
@@ -45,7 +46,7 @@ export default function ReceptionPage() {
       )}
 
       {!data ? (
-        !error && <EmptyState>Loading…</EmptyState>
+        !error && <ReceptionSkeleton />
       ) : (
         // Three columns on wide screens: front desk | cases | agenda.
         <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">

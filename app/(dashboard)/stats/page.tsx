@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useDashboard } from "@/components/dashboard-context";
 import { ErrorBanner } from "@/components/error-banner";
-import { EmptyState } from "@/components/panel";
+import { Group } from "@/components/stats/group";
+import { StatsSkeleton } from "@/components/stats/skeleton";
 import { CheckInsPanel, IncidentsStatsPanel, MembersPanel, OccupancyPanel, RoomsPanel, SalesPanel } from "@/components/stats/panels";
 import { usePolling } from "@/components/use-polling";
 import type { StatsDto, StatsRange } from "@/lib/dto";
@@ -13,16 +14,6 @@ const RANGES: { value: StatsRange; label: string }[] = [
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
 ];
-
-/** Panels grouped by purpose, each group under a heading. */
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
-      <div className="grid items-start gap-4 lg:grid-cols-2">{children}</div>
-    </section>
-  );
-}
 
 export default function StatsPage() {
   const { location } = useDashboard();
@@ -54,7 +45,7 @@ export default function StatsPage() {
       {error && <ErrorBanner message={`Couldn't load stats (${error}).`} onRetry={retry} />}
 
       {!data ? (
-        !error && <EmptyState>Loading…</EmptyState>
+        !error && <StatsSkeleton />
       ) : (
         <div className="space-y-8">
           <Group title="Sales & members">
