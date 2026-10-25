@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Modal } from "@/components/modal";
-import { Panel } from "@/components/panel";
+import { Section } from "@/components/panel";
 import { useNow } from "@/components/use-now";
 import type { CompanyDto, DeliveryDto, NewDeliveryBody } from "@/lib/dto";
 import { formatAge } from "@/lib/format";
@@ -26,7 +26,7 @@ async function callApi(router: ReturnType<typeof useRouter>, url: string, method
 
 const tile = "rounded border p-3 text-center transition";
 
-export function DeliveriesPanel({
+export function DeliveriesSection({
   locationSlug,
   deliveries,
   companies,
@@ -41,7 +41,7 @@ export function DeliveriesPanel({
   const [listing, setListing] = useState(false);
 
   return (
-    <Panel title="Deliveries">
+    <Section title="Deliveries">
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -65,7 +65,7 @@ export function DeliveriesPanel({
 
       <AddDeliveryDialog open={adding} onClose={() => setAdding(false)} locationSlug={locationSlug} companies={companies} onChanged={onChanged} />
       <WaitingDialog open={listing} onClose={() => setListing(false)} locationSlug={locationSlug} deliveries={deliveries} onChanged={onChanged} />
-    </Panel>
+    </Section>
   );
 }
 

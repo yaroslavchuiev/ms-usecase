@@ -83,6 +83,17 @@ export interface SfBooking extends SfRecord {
   Location__c: string;
 }
 
+/** Standard Salesforce Task (to-do). Assigned to a user; `What` is the related record (account, case...). */
+export interface SfTask extends SfRecord {
+  Subject: string;
+  ActivityDate: string | null; // due date, YYYY-MM-DD
+  Status: "Not Started" | "In Progress" | "Waiting on someone else" | "Deferred" | "Completed";
+  Priority: "High" | "Normal" | "Low";
+  IsClosed: boolean;
+  What: SfRef<{ Name: string }> | null;
+  Owner: SfRef<{ Email: string }>;
+}
+
 /** A parcel received at reception for a member company, waiting to be collected. */
 export interface SfDelivery extends SfRecord {
   Name: string; // auto-number, e.g. "DL-0000123"

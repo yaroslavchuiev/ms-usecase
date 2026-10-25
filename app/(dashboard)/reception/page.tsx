@@ -2,10 +2,11 @@
 
 import { useDashboard } from "@/components/dashboard-context";
 import { ErrorBanner } from "@/components/error-banner";
-import { EmptyState } from "@/components/panel";
-import { DeliveriesPanel } from "@/components/reception/deliveries";
-import { UsefulLinksPanel } from "@/components/reception/useful-links";
-import { AgendaPanel, IncidentsPanel, OverviewPanel } from "@/components/reception/panels";
+import { EmptyState, Panel } from "@/components/panel";
+import { DeliveriesSection } from "@/components/reception/deliveries";
+import { TasksPanel } from "@/components/reception/tasks";
+import { LinksSection } from "@/components/reception/useful-links";
+import { AgendaPanel, IncidentsPanel, SpotsSection } from "@/components/reception/panels";
 import { useNow } from "@/components/use-now";
 import { usePolling } from "@/components/use-polling";
 import type { ReceptionDto } from "@/lib/dto";
@@ -46,12 +47,18 @@ export default function ReceptionPage() {
       {!data ? (
         !error && <EmptyState>Loading…</EmptyState>
       ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        // Three columns on wide screens: front desk | cases | agenda.
+        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <Panel title="Front desk">
+            <div className="space-y-5">
+              <SpotsSection freeSpots={data.freeSpots} entered={data.entered} timeZone={location.timeZone} />
+              <DeliveriesSection locationSlug={location.slug} deliveries={data.deliveries} companies={data.companies} onChanged={retry} />
+              <LinksSection links={data.links} />
+            </div>
+          </Panel>
           <div className="grid gap-4">
-            <OverviewPanel freeSpots={data.freeSpots} entered={data.entered} timeZone={location.timeZone} />
-            <DeliveriesPanel locationSlug={location.slug} deliveries={data.deliveries} companies={data.companies} onChanged={retry} />
-            <UsefulLinksPanel links={data.links} />
             <IncidentsPanel incidents={data.incidents} />
+            <TasksPanel locationSlug={location.slug} />
           </div>
           <AgendaPanel agenda={data.agenda} timeZone={location.timeZone} />
         </div>

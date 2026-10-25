@@ -1,10 +1,10 @@
-import { Panel } from "@/components/panel";
+import { Section } from "@/components/panel";
 import type { UsefulLinkDto } from "@/lib/dto";
 
-export function UsefulLinksPanel({ links }: { links: UsefulLinkDto[] }) {
+export function LinksSection({ links }: { links: UsefulLinkDto[] }) {
   return (
-    <Panel title="Useful links">
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+    <Section title="Useful links">
+      <ul className="grid grid-cols-2 gap-3">
         {links.map((l) => {
           const external = l.url.startsWith("https://"); // tel: links stay in the same tab
           return (
@@ -24,6 +24,6 @@ export function UsefulLinksPanel({ links }: { links: UsefulLinkDto[] }) {
           );
         })}
       </ul>
-    </Panel>
+    </Section>
   );
 }

@@ -12,6 +12,16 @@ export function Panel({ title, aside, children, className = "" }: { title: strin
   );
 }
 
+/** A titled block inside a Panel, for panels that group several related things. */
+export function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-2 text-sm font-medium text-zinc-500">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 export function EmptyState({ children }: { children: ReactNode }) {
   return <p className="py-6 text-center text-sm text-zinc-500">{children}</p>;
 }

@@ -4,6 +4,7 @@ import type { DashboardRole, LocationDto } from "@/lib/dto";
 import { getLocations } from "@/lib/locations";
 import { authorise } from "./authorise";
 import { getSessionUser } from "./session";
+import type { MockUser } from "./users";
 
 /**
  * The gate for every location-scoped API route:
@@ -13,7 +14,7 @@ import { getSessionUser } from "./session";
 export async function authoriseLocationRequest(
   request: Request,
   role: DashboardRole,
-): Promise<{ location: LocationDto } | { error: Response }> {
+): Promise<{ user: MockUser; location: LocationDto } | { error: Response }> {
   const user = await getSessionUser();
   if (!user) return { error: jsonError(401, "Authentication required") };
 
@@ -30,5 +31,5 @@ export async function authoriseLocationRequest(
   }
   const location = locations.find((l) => l.slug === slug);
   if (!location) return { error: jsonError(404, "Location not found") };
-  return { location };
+  return { user, location };
 }

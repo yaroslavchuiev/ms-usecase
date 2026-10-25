@@ -1,7 +1,7 @@
 import "server-only";
 import { query } from "./client";
 import type { RawReception, RawStats } from "./mappers";
-import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTour } from "./types";
+import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTask, SfTour } from "./types";
 
 // The SOQL behind each dashboard. lib/mock/queries.ts mirrors these WHERE clauses, so mock
 // and live return the same records. Field lists are exactly what the mappers read.
@@ -11,6 +11,7 @@ const id = (value: string) => {
   if (!/^[a-zA-Z0-9]{15,18}$/.test(value)) throw new Error("Invalid Salesforce Id");
   return `'${value}'`;
 };
+const text = (value: string) => `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`; // quoted, escaped string literal
 const dateTime = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z"); // 2026-10-24T08:00:00Z, unquoted
 const BUILDING_INCIDENT = "RecordType.Name = 'Building Incident'";
 
@@ -20,6 +21,13 @@ const SPACE_FIELDS = "Id, Name, Type__c, Capacity__c, Status__c, Location__c";
 const CHECK_IN_FIELDS =
   "Id, Type__c, Contact__c, Contact__r.Name, Guest_Name__c, Account__c, Account__r.Name, Check_In_Time__c, Location__c";
 const BOOKING_FIELDS = "Id, Name, Space__c, Space__r.Name, Space__r.Type__c, Account__c, Account__r.Name, Start__c, End__c, Guest_Count__c, Location__c";
+
+/** Open tasks owned by the Salesforce user with this email, due on or before `today` (YYYY-MM-DD). */
+export function fetchTasks(ownerEmail: string, today: string) {
+  return query<SfTask>(
+    `SELECT Id, Subject, ActivityDate, Status, Priority, IsClosed, What.Name, Owner.Email FROM Task WHERE Owner.Email = ${text(ownerEmail)} AND IsClosed = false AND ActivityDate <= ${today} ORDER BY ActivityDate, Priority`,
+  );
+}
 
 export function fetchLocations() {
   return query<SfLocation>("SELECT Id, Name, Capacity__c, Time_Zone__c FROM Location__c ORDER BY Name");

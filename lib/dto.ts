@@ -54,6 +54,23 @@ export interface UsefulLinkDto {
   url: string;
 }
 
+/** One of the signed-in user's open Salesforce tasks that is due today or overdue. */
+export interface TaskDto {
+  id: string;
+  subject: string;
+  related: string | null; // name of the related record, e.g. the company
+  dueDate: string; // YYYY-MM-DD, local
+  overdue: boolean;
+  priority: "High" | "Normal" | "Low";
+  status: string;
+  url: string | null; // opens the task in Salesforce
+}
+
+export interface TasksDto {
+  lastUpdated: string;
+  tasks: TaskDto[]; // overdue first (oldest due date first), then today
+}
+
 export interface CompanyDto {
   id: string;
   name: string;

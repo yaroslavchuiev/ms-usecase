@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/modal";
-import { EmptyState, Panel } from "@/components/panel";
+import { EmptyState, Panel, Section } from "@/components/panel";
 import { useNow } from "@/components/use-now";
 import type { AgendaItemDto, EntryDto, FreeSpotsDto, IncidentDto } from "@/lib/dto";
 import { formatAge, formatTime } from "@/lib/format";
@@ -26,7 +26,7 @@ export function IncidentsPanel({ incidents }: { incidents: IncidentDto[] }) {
                 {i.priority}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{i.subject}</p>
+                <p className="text-sm font-medium">{i.subject}</p>
                 <p className="text-xs text-zinc-500">
                   {i.category} · {i.status}
                 </p>
@@ -41,7 +41,7 @@ export function IncidentsPanel({ incidents }: { incidents: IncidentDto[] }) {
                   title="Open in Salesforce"
                   className="shrink-0 rounded border border-zinc-300 px-2 py-0.5 text-xs hover:border-zinc-500 dark:border-zinc-700"
                 >
-                  Salesforce ↗
+                  Open ↗
                 </a>
               )}
             </li>
@@ -52,11 +52,11 @@ export function IncidentsPanel({ incidents }: { incidents: IncidentDto[] }) {
   );
 }
 
-export function OverviewPanel({ freeSpots, entered, timeZone }: { freeSpots: FreeSpotsDto[]; entered: EntryDto[]; timeZone: string }) {
+export function SpotsSection({ freeSpots, entered, timeZone }: { freeSpots: FreeSpotsDto[]; entered: EntryDto[]; timeZone: string }) {
   const label = { Desk: "desks", Office: "offices", Room: "meeting rooms" } as const;
   return (
-    <Panel title="Free spots & entered today">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <Section title="Free spots & entered today">
+      <div className="grid grid-cols-2 gap-3">
         {freeSpots.map((s) => (
           <div key={s.type} className="rounded border border-zinc-200 p-3 text-center dark:border-zinc-800">
             <p className="text-3xl font-semibold tabular-nums">{s.available}</p>
@@ -67,7 +67,7 @@ export function OverviewPanel({ freeSpots, entered, timeZone }: { freeSpots: Fre
         ))}
         <EnteredTile entered={entered} timeZone={timeZone} />
       </div>
-    </Panel>
+    </Section>
   );
 }
 

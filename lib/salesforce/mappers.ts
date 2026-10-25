@@ -5,6 +5,7 @@ import type {
   LocationDto,
   AgendaItemDto,
   CompanyDto,
+  TaskDto,
   UsefulLinkDto,
   DeliveryDto,
   ReceptionDto,
@@ -13,7 +14,7 @@ import type {
   StatsRange,
 } from "@/lib/dto";
 import { addLocalDays, localDateString, localHour, startOfLocalDay } from "@/lib/time";
-import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTour } from "./types";
+import type { SfBooking, SfCase, SfCheckIn, SfContract, SfDelivery, SfLocation, SfOccupancySnapshot, SfSpace, SfTask, SfTour } from "./types";
 
 /** "Kraków" -> "krakow", "Tel Aviv" -> "tel-aviv". Slugs are what group names refer to. */
 export function slugify(name: string): string {
@@ -130,6 +131,27 @@ export function buildReception(location: LocationDto, raw: RawReception, now: Da
     links: extras.links,
     companies: mapCompanies(raw.activeContracts),
   };
+}
+
+// --- Tasks -------------------------------------------------------------------------------------
+
+const TASK_PRIORITY_ORDER = { High: 0, Normal: 1, Low: 2 } as const;
+
+/** `today` is the location's local date (YYYY-MM-DD). Open tasks without a due date never reach this far. */
+export function buildTasks(records: SfTask[], today: string, salesforceBaseUrl: string | null): TaskDto[] {
+  return records
+    .filter((t) => !t.IsClosed && t.ActivityDate && t.ActivityDate <= today)
+    .map((t) => ({
+      id: t.Id,
+      subject: t.Subject,
+      related: t.What?.Name ?? null,
+      dueDate: t.ActivityDate!,
+      overdue: t.ActivityDate! < today,
+      priority: t.Priority,
+      status: t.Status,
+      url: salesforceBaseUrl && `${salesforceBaseUrl}/lightning/r/Task/${t.Id}/view`,
+    }))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || TASK_PRIORITY_ORDER[a.priority] - TASK_PRIORITY_ORDER[b.priority]);
 }
 
 // --- Stats -------------------------------------------------------------------------------------
