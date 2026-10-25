@@ -33,12 +33,7 @@ export function getUsefulLinks(location: LocationDto): UsefulLinkDto[] {
     ...(local ? [local.transport] : []),
     { label: "Taxi", description: "Order a ride for a guest (Uber)", url: "https://www.uber.com/go/home" },
     { label: "Coffee & lunch nearby", description: "Places to recommend to visitors", url: mapsSearch(`coffee and lunch near Mindspace ${location.name}`) },
-    ...(local ? [local.emergency] : []),
-    ...(salesforce
-      ? [
-          { label: "Salesforce", description: "Open Salesforce", url: `${salesforce}/lightning/page/home` },
-          { label: "New case", description: "Report an issue or request in Salesforce", url: `${salesforce}/lightning/o/Case/new` },
-        ]
-      : []),
+    { label: "Salesforce", description: "Open Salesforce", url: `${salesforce}/lightning/page/home` },
+    { label: "New case", description: "Report an issue or request in Salesforce", url: `${salesforce}/lightning/o/Case/new` }
   ];
 }
